@@ -103,12 +103,90 @@ def _align_xy(features: pd.DataFrame, labels: pd.Series) -> Tuple[pd.DataFrame, 
     y = df["y"]
     return X, y
 
+def _align_xy_open_entry_no_lookahead(
+    ohlc: pd.DataFrame,
+    feats: pd.DataFrame,
+    atr_series: pd.Series,
+    horizon: HorizonSpec,
+    task: str,
+    side: str,
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Фичи (t-1), вход на OPEN[t], путь от t..t+h.
+    Делает:
+      - feats_shifted = feats.shift(1)
+      - labels = build_labels_open_entry(..., side=side)  # {-1,0,+1} для binary
+      - конверсия y -> {0,1} если классификация
+      - синхронизация индексов и dropna
+    """
+    from forecast.labeling import build_labels_open_entry
+    feats_s = feats.shift(1)
+
+    labels_raw = build_labels_open_entry(
+        ohlc=ohlc.loc[feats.index, ["open","high","low","close"]],
+        atr_series=atr_series.reindex(feats.index),
+        horizon=HorizonSpec(horizon.horizon_bars, horizon.tp_mult_atr, horizon.sl_mult_atr),
+        task=task,
+        side=side
+    )
+    df = feats_s.join(labels_raw.rename("y"), how="inner")
+    df = df.replace([np.inf, -np.inf], np.nan).dropna()
+    # бинаризация при классификации
+    if task in ("binary_hit", "direction", "trinary"):
+        # для binary_hit метка {-1,0,+1} -> {0,1}
+        y_bin = (df["y"] > 0).astype(int)
+        X = df.drop(columns=["y"])
+        return X, y_bin
+    else:
+        X = df.drop(columns=["y"])
+        y = df["y"]
+        return X, y
+
+def _augment_both_sides(
+    X: pd.DataFrame, y: pd.Series,
+    X_short: pd.DataFrame, y_short: pd.Series
+) -> Tuple[pd.DataFrame, pd.Series]:
+    Xa = pd.concat([X.copy(), X_short.copy()], axis=0)
+    ya = pd.concat([y.copy(), y_short.copy()], axis=0)
+    # фича направления сделки:
+    X["side_dir"] = +1.0
+    X_short["side_dir"] = -1.0
+    Xa["side_dir"] = Xa["side_dir"].fillna(0.0)  # safety
+    return Xa, ya
+
+def _make_sample_weights(y: pd.Series, symbols: pd.Series, enable_symbol_balance: bool) -> np.ndarray:
+    # class-balance
+    p = y.mean()
+    # веса классов: реже встречающийся класс получает больший вес
+    w_pos = 0.5 / max(p, 1e-6)
+    w_neg = 0.5 / max(1.0 - p, 1e-6)
+    w = y.map({1: w_pos, 0: w_neg}).astype(float)
+
+    if enable_symbol_balance and symbols is not None:
+        counts = symbols.value_counts()
+        inv = symbols.map(lambda s: 1.0 / max(counts.get(s, 1), 1.0))
+        inv = inv / inv.mean()
+        w = w * inv.values
+    return w.values
+
+def _apply_corr_dropout(X: pd.DataFrame, prob: float) -> pd.DataFrame:
+    if prob <= 0.0:
+        return X
+    X = X.copy()
+    sym_cols = [c for c in X.columns if c.startswith("sym__")]
+    if not sym_cols:
+        return X
+    mask = (np.random.rand(len(X)) < prob)
+    if mask.any():
+        X.loc[mask, sym_cols] = 0.0
+    return X
+
 def _split_train_val(X: pd.DataFrame, y: pd.Series, ratio: float) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     n = len(X)
     cut = int(n * ratio)
     return X.iloc[:cut], X.iloc[cut:], y.iloc[:cut], y.iloc[cut:]
 
-def _train_estimator(X: pd.DataFrame, y: pd.Series, cfg: TrainConfig) -> Dict[str, Any]:
+def _train_estimator(X: pd.DataFrame, y: pd.Series, cfg: TrainConfig, Xva: pd.DataFrame = None, yva: pd.Series = None, w_tr: np.ndarray = None) -> Dict[str, Any]:
     """Возвращает словарь с ключами: kind, model_path, feature_names, metrics."""
     _ensure_dir(cfg.models_dir)
 
@@ -117,33 +195,53 @@ def _train_estimator(X: pd.DataFrame, y: pd.Series, cfg: TrainConfig) -> Dict[st
         # Приводим к {0,1} для классификации
         y_bin = y.copy()
         y_bin = (y_bin > 0).astype(int)
-        if LGB_OK:
-            dtrain = lgb.Dataset(X, label=y_bin)
-            params = {
-                "objective": "binary",
-                "metric": ["auc", "binary_logloss"],
-                "learning_rate": 0.05,
-                "num_leaves": 31,
-                "feature_fraction": 0.9,
-                "bagging_fraction": 0.8,
-                "bagging_freq": 1,
-                "seed": cfg.random_state
-            }
-            model = lgb.train(params, dtrain, num_boost_round=300)
-            kind = "lgb_binary"
-            model_obj = model
-        elif SK_OK:
-            pipe = Pipeline(steps=[
-                ("scaler", StandardScaler(with_mean=False)),
-                ("lr", LogisticRegression(max_iter=500, random_state=cfg.random_state))
-            ])
-            model_obj = pipe.fit(X, y_bin)
-            kind = "sk_logreg"
-        else:
-            # Фолбэк: весовая сумма фич → "скор" (псевдо-модель)
-            weights = (X.corrwith(y)).fillna(0.0).values
-            model_obj = {"weights": weights, "feature_names": list(X.columns)}
-            kind = "linear_fallback"
+    if LGB_OK:
+        dtrain = lgb.Dataset(X, label=y_bin, weight=w_tr, free_raw_data=False)
+        dvalid = lgb.Dataset(Xva, label=yva, reference=dtrain, free_raw_data=False) if Xva is not None else None
+        params = {
+            "objective": "binary",
+            "metric": ["auc", "binary_logloss"],
+            "learning_rate": 0.035,
+            "num_leaves": 31,
+            "max_depth": -1,
+            "min_data_in_leaf": 64,
+            "feature_fraction": 0.75,
+            "bagging_fraction": 0.8,
+            "bagging_freq": 1,
+            "lambda_l1": 1.0,
+            "lambda_l2": 2.0,
+            "seed": cfg.random_state,
+            "verbosity": -1,
+        }
+        valid_sets = [dtrain]
+        valid_names = ["train"]
+        if dvalid is not None:
+            valid_sets.append(dvalid)
+            valid_names.append("valid")
+        
+        model = lgb.train(
+            params, dtrain,
+            num_boost_round=400,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            early_stopping_rounds=60,
+            keep_training_booster=True,
+        )
+        kind = "lgb_binary"
+        model_obj = model
+    elif SK_OK:
+        pipe = Pipeline(steps=[
+            ("scaler", StandardScaler(with_mean=False)),
+            ("lr", LogisticRegression(max_iter=800, C=0.8, class_weight="balanced",
+                                      n_jobs=None, random_state=cfg.random_state))
+        ])
+        model_obj = pipe.fit(X, y_bin)
+        kind = "sk_logreg"
+    else:
+        # Фолбэк: весовая сумма фич → "скор" (псевдо-модель)
+        weights = (X.corrwith(y)).fillna(0.0).values
+        model_obj = {"weights": weights, "feature_names": list(X.columns)}
+        kind = "linear_fallback"
 
     else:  # regression
         if LGB_OK:
@@ -202,7 +300,7 @@ def _train_estimator(X: pd.DataFrame, y: pd.Series, cfg: TrainConfig) -> Dict[st
 
 # -------------------------------
 
-def train_one(cfg: TrainConfig) -> Dict[str, Any]:
+def train_one(cfg: TrainConfig, args) -> Dict[str, Any]:
     # 1) загрузка/слияние данных по всем символам (stack)
     frames = []
     for sym in cfg.symbols:
@@ -212,36 +310,72 @@ def train_one(cfg: TrainConfig) -> Dict[str, Any]:
     data = pd.concat(frames, axis=0, keys=[f"s[{s}]" for s in cfg.symbols])
     # Используем покомпонентно (обучение на объединении символов)
     # 2) Фичи и лейблы
-    feats_all, y_all = [], []
+    feats_all, y_all, sym_all = [], [], []
     for sym in cfg.symbols:
         sub = data.xs(key=f"s[{sym}]", level=0)
         feats = _simple_features(sub)
         # ATR для барьеров
         atr_series = atr(sub["high"], sub["low"], sub["close"], period=14).reindex(feats.index)
         horizon = HorizonSpec(cfg.horizon_bars, cfg.tp_mult_atr, cfg.sl_mult_atr)
-        labels = build_labels(
-            ohlc=sub.loc[feats.index, ["open","high","low","close"]],
-            atr_series=atr_series,
-            horizon=horizon,
-            task=cfg.task,
-            side=cfg.side
-        )
-        X, y = _align_xy(feats, labels)
-        # символ как категориальная фича (one-hot)
-        X = X.copy()
-        X[f"sym__{sym}"] = 1.0
-        feats_all.append(X)
-        y_all.append(y)
+
+        if args.entry_mode == "open_t":
+            X_long, y_long = _align_xy_open_entry_no_lookahead(
+                ohlc=sub.loc[feats.index, ["open","high","low","close"]],
+                feats=feats, atr_series=atr_series, horizon=horizon, task=cfg.task, side="LONG"
+            )
+            if args.both_sides:
+                X_short, y_short = _align_xy_open_entry_no_lookahead(
+                    ohlc=sub.loc[feats.index, ["open","high","low","close"]],
+                    feats=feats, atr_series=atr_series, horizon=horizon, task=cfg.task, side="SHORT"
+                )
+                # side-augmentation
+                X_sym, y_sym = _augment_both_sides(X_long, y_long, X_short, y_short)
+            else:
+                X_sym, y_sym = X_long, y_long
+
+        elif args.entry_mode == "open_next":
+            # вход на OPEN[t+1], фичи по t — это классическая схема: сдвиг не нужен
+            X_sym, y_sym = _align_xy(feats, build_labels(
+                ohlc=sub.loc[feats.index, ["open","high","low","close"]],
+                atr_series=atr_series, horizon=horizon, task=cfg.task, side="LONG"
+            ))
+        else:  # "close_t"
+            # вход на CLOSE[t], но чтобы не было лука-ахеда, фичи на t-1
+            feats_s = feats.shift(1)
+            X_sym, y_sym = _align_xy(feats_s, build_labels(
+                ohlc=sub.loc[feats.index, ["open","high","low","close"]],
+                atr_series=atr_series, horizon=horizon, task=cfg.task, side="LONG"
+            ))
+
+        # one-hot символа
+        X_sym = X_sym.copy()
+        X_sym[f"sym__{sym}"] = 1.0
+
+        feats_all.append(X_sym)
+        y_all.append(y_sym)
+        sym_all.append(pd.Series(sym, index=y_sym.index, dtype=str))
 
     X = pd.concat(feats_all, axis=0).sort_index()
     y = pd.concat(y_all, axis=0).sort_index()
+    sym_series = pd.concat(sym_all, axis=0).sort_index()
+
+    # anti-correlation trick: иногда зануляем one-hot символа, чтобы модель меньше залипала на тикер
+    X = _apply_corr_dropout(X, prob=args.corr_dropout)
 
     if len(X) < 200:
         warnings.warn("Very small dataset (<200 rows). Consider expanding date range.")
-    Xtr, Xva, ytr, yva = _split_train_val(X, y, cfg.train_ratio)
+    
+    # time-based split:
+    cut_ts = X.index[int(len(X) * cfg.train_ratio)]
+    Xtr, Xva = X.loc[:cut_ts], X.loc[cut_ts:]
+    ytr, yva = y.loc[:cut_ts], y.loc[cut_ts:]
+    sym_tr, sym_va = sym_series.loc[:cut_ts], sym_series.loc[cut_ts:]
+
+    # sample weights:
+    w_tr = _make_sample_weights(ytr, sym_tr if args.symbol_balance else None, enable_symbol_balance=args.symbol_balance)
 
     # 3) обучение
-    res = _train_estimator(Xtr, ytr, cfg)
+    res = _train_estimator(Xtr, ytr, cfg, Xva, yva, w_tr)
 
     # 4) быстрая метрика на валидации (если можно)
     metrics: Dict[str, Any] = {}
@@ -286,6 +420,11 @@ def main():
     ap.add_argument("--sl_atr", type=float, default=2.0)
     ap.add_argument("--models_dir", type=str, default="forecast/models")
     ap.add_argument("--train_ratio", type=float, default=0.8)
+    ap.add_argument("--entry_mode", type=str, default="open_t", choices=["open_t","close_t","open_next"],
+                    help="Момент входа: open_t (мгновенный), close_t (конец бара), open_next (на следующем баре).")
+    ap.add_argument("--both_sides", action="store_true", help="Дублировать выборки на LONG/SHORT с признаком side_dir.")
+    ap.add_argument("--symbol_balance", action="store_true", help="Балансировать веса по символам (анти-перекос).")
+    ap.add_argument("--corr_dropout", type=float, default=0.0, help="Вероятность занулить one-hot символ (0..1) для анти-корр.")
     args = ap.parse_args()
 
     cfg = TrainConfig(
@@ -296,7 +435,7 @@ def main():
         train_ratio=args.train_ratio
     )
     _ensure_dir(cfg.models_dir)
-    res = train_one(cfg)
+    res = train_one(cfg, args)
     print(json.dumps({
         "ok": True,
         "model_kind": res["kind"],

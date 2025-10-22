@@ -1,7 +1,7 @@
 # forecast/labeling.py
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, Literal, Tuple
+from typing import Dict, Literal, Tuple, Optional
 import numpy as np
 import pandas as pd
 
@@ -80,6 +80,80 @@ def event_outcome_first_hit(
             out.iloc[t] = hit
 
     return out
+
+
+def event_outcome_first_hit_open_entry(
+    high: pd.Series,
+    low: pd.Series,
+    open_: pd.Series,
+    atr: pd.Series,
+    horizon_bars: int,
+    tp_mult_atr: float,
+    sl_mult_atr: float,
+    side: Literal["LONG", "SHORT"] = "LONG",
+) -> pd.Series:
+    """
+    Как event_outcome_first_hit, но вход на OPEN[t], путь оценивается с бара t (включая t),
+    т.е. моделируем мгновенный вход. ВАЖНО: фичи для этого примера ДОЛЖНЫ быть сдвинуты на t-1.
+    """
+    out = pd.Series(index=open_.index, dtype=float)
+    for t in range(len(open_)):
+        o0 = open_.iloc[t]
+        if np.isnan(o0):
+            out.iloc[t] = np.nan
+            continue
+        t_end = min(t + horizon_bars, len(open_) - 1)
+        tp_dist = atr.iloc[t] * tp_mult_atr
+        sl_dist = atr.iloc[t] * sl_mult_atr
+
+        if side == "LONG":
+            tp_price = o0 * (1.0 + tp_dist / max(o0, 1e-12))
+            sl_price = o0 * (1.0 - sl_dist / max(o0, 1e-12))
+            hit = 0.0
+            for k in range(t, t_end + 1):  # включаем бар t
+                if low.iloc[k] <= sl_price:
+                    hit = -1.0
+                    break
+                if high.iloc[k] >= tp_price:
+                    hit = +1.0
+                    break
+            out.iloc[t] = hit
+        else:
+            tp_price = o0 * (1.0 - tp_dist / max(o0, 1e-12))
+            sl_price = o0 * (1.0 + sl_dist / max(o0, 1e-12))
+            hit = 0.0
+            for k in range(t, t_end + 1):
+                if high.iloc[k] >= sl_price:
+                    hit = -1.0
+                    break
+                if low.iloc[k] <= tp_price:
+                    hit = +1.0
+                    break
+            out.iloc[t] = hit
+    return out
+
+
+def build_labels_open_entry(
+    ohlc: pd.DataFrame,
+    atr_series: pd.Series,
+    horizon: HorizonSpec,
+    task: LabelType = "binary_hit",
+    side: Literal["LONG", "SHORT"] = "LONG",
+) -> pd.Series:
+    """
+    Разметка под мгновенный вход на OPEN[t] и путь с t..t+h. Для binary_hit возвращает {-1,0,+1}.
+    Для direction/trinary/regression — как раньше (но имей в виду, что фичи сдвигаются снаружи).
+    """
+    if task == "binary_hit":
+        return event_outcome_first_hit_open_entry(
+            ohlc["high"], ohlc["low"], ohlc["open"], atr_series,
+            horizon_bars=horizon.horizon_bars,
+            tp_mult_atr=horizon.tp_mult_atr,
+            sl_mult_atr=horizon.sl_mult_atr,
+            side=side
+        )
+    # Остальные задачи можно оставить как есть:
+    return build_labels(ohlc, atr_series, horizon, task=task, side=side)
 
 
 def label_direction(close: pd.Series, horizon_bars: int) -> pd.Series:
