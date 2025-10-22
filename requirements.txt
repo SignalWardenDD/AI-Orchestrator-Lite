@@ -4,6 +4,7 @@ numpy>=1.21.0
 pyyaml>=6.0
 requests>=2.28.0
 python-dateutil>=2.8.0
+pyarrow>=10.0.0  # For parquet support
 
 # ML dependencies (optional)
 scikit-learn>=1.1.0

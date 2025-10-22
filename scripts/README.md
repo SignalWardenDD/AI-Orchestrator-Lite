@@ -1,6 +1,163 @@
-# Скрипты для обучения и калибровки моделей
+# Scripts Documentation
 
-## Обзор
+This directory contains utility scripts for the Orchestrator-Alpha system.
+
+## Data Collection Scripts
+
+### `fetch_binance_futures.py`
+Downloads OHLCV data from Binance USDT-M Futures for the last 3 years.
+
+**Usage:**
+```bash
+# Download 1h data for all default symbols (last 3 years)
+python scripts/fetch_binance_futures.py
+
+# Download 15m data for specific symbols
+python scripts/fetch_binance_futures.py --interval 15m --symbols "ADAUSDT,HBARUSDT,LTCUSDT"
+
+# Download data for specific date range
+python scripts/fetch_binance_futures.py --start 2022-01-01 --end 2025-10-22
+
+# Download 5m data for all symbols
+python scripts/fetch_binance_futures.py --interval 5m
+```
+
+**Output:**
+- CSV files saved to `data/raw/binance_futures/{interval}/`
+- Format: `{SYMBOL}_{interval}_{start_date}-{end_date}.csv`
+- Columns: timestamp, open, high, low, close, volume, close_time, quote_asset_volume, trades, taker_buy_base, taker_buy_quote
+
+### `prepare_training_data.py`
+Prepares downloaded OHLCV data for ML model training.
+
+**Usage:**
+```bash
+# Prepare training data from 1h data with 24-bar horizon
+python scripts/prepare_training_data.py --interval 1h --horizon 24
+
+# Prepare with custom TP/SL multipliers
+python scripts/prepare_training_data.py --tp_mult 2.5 --sl_mult 1.8
+
+# Use specific data directory
+python scripts/prepare_training_data.py --data_dir data/raw/binance_futures --output data/processed
+```
+
+**Output:**
+- Training data saved to `data/processed/`
+- Formats: CSV, Parquet, Train/Val split
+- Features: Returns, EMAs, volatility, z-scores, lags, symbol one-hot
+- Labels: Binary hit/miss based on TP/SL levels
+
+## ML Training Scripts
+
+### `train_forecasters.py`
+Trains ML models (LightGBM/Logistic Regression) for signal prediction.
+
+**Usage:**
+```bash
+# Train binary hit model for 24h horizon
+python scripts/train_forecasters.py --symbols "ADAUSDT,HBARUSDT,LTCUSDT" --hbars 24 --task binary_hit
+
+# Train direction model with custom parameters
+python scripts/train_forecasters.py --symbols "PNUTUSDT,WIFUSDT,ENAUSDT" --hbars 12 --task direction --tp_atr 2.5 --sl_atr 1.8
+```
+
+### `calibrate_forecasters.py`
+Calibrates model probabilities using Platt scaling or Isotonic regression.
+
+**Usage:**
+```bash
+# Calibrate with Isotonic regression
+python scripts/calibrate_forecasters.py --model_path forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib --val_csv data/processed/val_H24.csv --kind isotonic
+
+# Calibrate with Platt scaling
+python scripts/calibrate_forecasters.py --model_path forecast/models/direction_ADAUSDT_and_6_more_H24.joblib --val_csv data/processed/val_H24.csv --kind platt
+```
+
+### `export_daily_report.py`
+Exports daily trading reports from telemetry data.
+
+**Usage:**
+```bash
+# Export daily report
+python scripts/export_daily_report.py --telemetry_dir telemetry --out_dir reports
+
+# Export with timezone
+python scripts/export_daily_report.py --telemetry_dir telemetry --out_dir reports --tz Europe/Kyiv
+```
+
+## Automation Scripts
+
+### `auto_train.sh`
+Automated training pipeline for all models.
+
+**Usage:**
+```bash
+# Run full training pipeline
+./scripts/auto_train.sh
+
+# Train specific models
+./scripts/auto_train.sh --models binary_hit,direction
+```
+
+### `nightly_maintenance.sh`
+Nightly maintenance tasks (data backup, log rotation, etc.).
+
+**Usage:**
+```bash
+# Run nightly maintenance
+./scripts/nightly_maintenance.sh
+```
+
+## Data Pipeline
+
+### Complete Data Pipeline:
+1. **Download data**: `python scripts/fetch_binance_futures.py`
+2. **Prepare features**: `python scripts/prepare_training_data.py`
+3. **Train models**: `python scripts/train_forecasters.py`
+4. **Calibrate probabilities**: `python scripts/calibrate_forecasters.py`
+5. **Export reports**: `python scripts/export_daily_report.py`
+
+### Directory Structure:
+```
+data/
+├── raw/
+│   └── binance_futures/
+│       ├── 1h/
+│       ├── 15m/
+│       └── 5m/
+└── processed/
+    ├── training_data_H24.parquet
+    ├── train_H24.parquet
+    └── val_H24.parquet
+
+forecast/
+└── models/
+    ├── binary_hit_ADAUSDT_and_6_more_H24.joblib
+    ├── binary_hit_ADAUSDT_and_6_more_H24.calib.isotonic.joblib
+    └── ...
+
+reports/
+├── daily_report_2025-10-22.csv
+└── weekly_report_2025-10-22.csv
+```
+
+## Dependencies
+
+Make sure to install required dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Key dependencies for data scripts:
+- `pandas` - Data manipulation
+- `numpy` - Numerical operations
+- `requests` - HTTP requests to Binance API
+- `pyarrow` - Parquet file support
+
+## Legacy Documentation
+
+### Скрипты для обучения и калибровки моделей
 
 Три скрипта для полного цикла ML обучения в системе Orchestrator-Alpha:
 
