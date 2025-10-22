@@ -1,0 +1,10 @@
+calm_natr_pct: 0.8
+edge_guard:
+  body_atr_min: 1.4
+  dist_ema20_atr_min: 1.2
+  rsi2_extreme: { hi: 98, lo: 2 }
+conversions:
+  retest_pullback_atr: 0.25
+  trend_micro_pullback_atr: [0.2, 0.3]
+  mr_window_bars: 4
+  require_rsi_hook: true

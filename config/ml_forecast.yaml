@@ -1,0 +1,43 @@
+# config/ml.yaml
+# ML конфигурация для системы Orchestrator-Alpha
+
+ml:
+  enabled: true
+  model_path: "forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib"
+  calibrator_prefer: "isotonic"   # или "platt" / null
+  prob_weight_base: 1.0           # 1.0 = не менять EV при p=0.5
+  prob_weight_gain: 1.0           # 1.0 = влияние умеренное; 1.5–2.0 усилит
+
+# Настройки для разных типов моделей
+models:
+  binary_hit:
+    enabled: true
+    model_path: "forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib"
+    prob_weight_gain: 1.2
+  direction:
+    enabled: true
+    model_path: "forecast/models/direction_ADAUSDT_and_6_more_H24.joblib"
+    prob_weight_gain: 1.0
+  trinary:
+    enabled: true
+    model_path: "forecast/models/trinary_ADAUSDT_and_6_more_H24.joblib"
+    prob_weight_gain: 0.8
+
+# Настройки калибровки
+calibration:
+  default_kind: "isotonic"  # "platt" или "isotonic"
+  fallback_to_platt: true
+  min_probability: 0.01
+  max_probability: 0.99
+
+# Настройки признаков
+features:
+  min_bars: 220
+  include_symbol_onehot: true
+  fallback_to_zeros: true
+
+# Настройки производительности
+performance:
+  cache_features: true
+  cache_ttl_seconds: 300
+  batch_predictions: true

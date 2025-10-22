@@ -1,0 +1,176 @@
+# ==============================================================
+#  ORCHESTRATOR-ALPHA v1.0 — MAIN SETTINGS
+# ==============================================================
+
+engine:
+  base_tf: "1h"
+  micro_tf: "15m"
+  loop_analyze_sec: 120
+  loop_ordercheck_sec: 15
+  loop_tp_sl_sec: 2
+  postonly_ttl_sec_min: 8
+  postonly_ttl_sec_max: 12
+  slippage_cap_pct: 0.12
+  score_min_usdt: 0.12
+  time_weight_alpha: 0.05     # E_adj = E/(1 + alpha * median(t_hit_first))
+  
+  # ML Forecast Settings
+  forecast:
+    enabled: true
+    ml_models: true
+    models_dir: "forecast/models"
+    auto_load: true
+    fallback_to_noml: true
+
+# BTC Context Settings
+btc_context:
+  weight_bonus_trend_gt: 0.7
+  weight_penalty_brk_lt: 0.3
+  max_delta_for_recheck: 0.15
+
+# ML Integration Settings
+ml:
+  enabled: true
+  model_path: "forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib"
+  calibrator_prefer: "isotonic"   # "platt" or "isotonic"
+  prob_weight_base: 1.0           # 1.0 = не менять EV при p=0.5
+  prob_weight_gain: 1.0           # 1.0 = влияние умеренное; 1.5–2.0 усилит
+  
+  # Model Settings
+  models:
+    binary_hit:
+      enabled: true
+      model_path: "forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib"
+      prob_weight_gain: 1.2
+    direction:
+      enabled: true
+      model_path: "forecast/models/direction_ADAUSDT_and_6_more_H24.joblib"
+      prob_weight_gain: 1.0
+    trinary:
+      enabled: true
+      model_path: "forecast/models/trinary_ADAUSDT_and_6_more_H24.joblib"
+      prob_weight_gain: 0.8
+  
+  # Calibration Settings
+  calibration:
+    default_kind: "isotonic"  # "platt" or "isotonic"
+    fallback_to_platt: true
+    min_probability: 0.01
+    max_probability: 0.99
+  
+  # Feature Settings
+  features:
+    min_bars: 220
+    include_symbol_onehot: true
+    fallback_to_zeros: true
+  
+  # Performance Settings
+  performance:
+    cache_features: true
+    cache_ttl_seconds: 300
+    batch_predictions: true
+
+# Signal Provider Settings
+signals:
+  breakout:
+    enabled: true
+    calm_natr_pct: 0.8
+    squeeze_pct: 0.70
+    c_mult_a: 1.2
+    c_mult_b: 1.3
+  pullback_mr:
+    enabled: true
+    window_bars: 4
+    req_hook: true
+    tail_atr_min: 0.6
+  trend:
+    enabled: true
+    adx_min: 18.0
+    micro_pull_atr: [0.2, 0.3]
+  bollinger_play:
+    enabled: true
+    squeeze_pct: 0.70
+    bandwidth_boom: 2.5
+
+# Guard Settings
+guards:
+  edge_guard:
+    enabled: true
+    calm_natr_pct: 0.8
+    edge_body_atr: 1.4
+    dist_ema20_atr_min: 1.2
+    rsi2_ext_hi: 98.0
+    rsi2_ext_lo: 2.0
+  conversions:
+    enabled: true
+    retest_pull_atr: 0.25
+  realtime_recheck:
+    enabled: true
+    fresh_cancel_gt: 0.5
+    fresh_adapt_min: 0.3
+    ttl_scenario_min: 6
+    ttl_scenario_max: 12
+
+# Execution Settings
+execution:
+  entry:
+    postonly_ttl_min: 8
+    postonly_ttl_max: 12
+    slippage_cap_pct: 0.12
+    market_fallback: true
+  exits:
+    tp_ladder:
+      tp1: [0.20, 0.6]    # 20% @ +0.6×ATR
+      tp2: [0.25, 1.2]    # 25% @ +1.2×ATR
+      tp3: [0.25, 2.0]    # 25% @ +2.0×ATR
+      tp4: [0.30, 3.2]    # 30% @ +3.2×ATR
+    sl_multipliers:
+      BRK: 1.3
+      PB: 2.0
+      TRND: 1.8
+      BB: 1.6
+    be_levels:
+      after_tp1: 0.15
+      after_tp2: 0.35
+      after_tp3: 0.80
+
+# Risk Management Settings
+risk:
+  daily_loss_usdt: -7.5
+  weekly_max_neg_days: 3
+  position_sizing:
+    fixed_notional_usdt: 15.0
+    leverage: 5
+  limits:
+    min_natr_trade_pct: 0.8
+    max_positions_per_symbol: 1
+    max_total_positions: 7
+
+# Telemetry Settings
+telemetry:
+  audit:
+    enabled: true
+    level: "INFO"
+  reports:
+    daily: true
+    weekly: true
+    format: "json"
+  storage:
+    type: "csv"
+    directory: "telemetry"
+    retention_days: 30
+
+# API Settings
+api:
+  enabled: true
+  host: "localhost"
+  port: 8000
+  health_check: true
+  metrics: true
+
+# System Settings
+system:
+  timezone: "UTC"
+  version: "v1.0"
+  debug: false
+  log_level: "INFO"

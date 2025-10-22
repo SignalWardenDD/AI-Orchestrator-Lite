@@ -1,0 +1,27 @@
+# Индикаторы и окна расчётов
+indicators:
+  atr:
+    period: 14
+    timeframe: "1h"
+  bollinger:
+    period: 20
+    std_dev: 2
+    timeframe: "1h"
+  rsi:
+    period: 14
+    timeframe: "1h"
+  rsi2:
+    period: 2
+    timeframe: "15m"
+  ema:
+    periods: [20, 50, 200]
+    timeframe: "1h"
+  adx:
+    period: 14
+    timeframe: "1h"
+
+# Окна для расчёта метрик
+windows:
+  donchian: 10
+  natr_period: 14
+  volume_sma: 20

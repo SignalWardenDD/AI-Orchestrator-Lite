@@ -1,0 +1,48 @@
+# ==============================================================
+#  TP/SL LADDER CONFIGURATION
+# ==============================================================
+
+# Take Profit Ladder (по спецификации)
+tp:
+  - { pct: 0.20, atr_mult: 0.6 }    # TP1: 20% @ +0.6×ATR
+  - { pct: 0.25, atr_mult: 1.2 }    # TP2: 25% @ +1.2×ATR
+  - { pct: 0.25, atr_mult: 2.0 }    # TP3: 25% @ +2.0×ATR
+  - { pct: 0.30, atr_mult: 3.2 }    # TP4: 30% @ +3.2×ATR
+
+# Break Even Levels (денежные уровни)
+be:
+  after_tp1_usdt: 0.15    # entry + fees + 0.15 USDT
+  after_tp2_usdt: 0.35    # entry + fees + 0.35 USDT
+  after_tp3_usdt: 0.80    # entry + fees + 0.80 USDT
+
+# Stop Loss Multipliers by Signal Type
+sl_multipliers:
+  BRK: 1.3    # Breakout: 1.3×ATR
+  PB: 2.0     # Pullback/MR: 2.0×ATR
+  TRND: 1.8   # Trend: 1.8×ATR
+  BB: 1.6     # Bollinger Play: 1.6×ATR
+
+# Position Sizing by Symbol Group
+position_sizing:
+  A_group:
+    fixed_notional_usdt: 15.0
+    leverage: 5
+    atr_sl_mult: 2.0
+  B_group:
+    fixed_notional_usdt: 15.0
+    leverage: 5
+    atr_sl_mult: 2.2
+
+# Trailing Stop Settings
+trailing:
+  enabled: true
+  after_tp1: true
+  after_tp2: true
+  after_tp3: true
+  step_usdt: 0.10
+
+# Risk Management
+risk:
+  max_slippage_pct: 0.12
+  min_profit_usdt: 0.12
+  max_loss_per_trade_usdt: 7.5

@@ -1,0 +1,99 @@
+# ==============================================================
+#  SYMBOL CONFIGURATION — ACTIVE PORTFOLIO (10 pairs)
+# ==============================================================
+# Группы разделены по волатильности:
+#   A — умеренные, плавные тренды (меньше ложных сигналов)
+#   B — спайковые, импульсные активы (шире ATR-буферы, SL выше)
+# ==============================================================
+
+A_group:
+  ADAUSDT:
+    type: "A"
+    atr_sl_mult: 2.0
+    atr_buf_long: 0.05
+    atr_buf_short: 0.10
+    tick_size: 0.0001
+    step_size: 1
+  HBARUSDT:
+    type: "A"
+    atr_sl_mult: 2.0
+    atr_buf_long: 0.05
+    atr_buf_short: 0.10
+    tick_size: 0.00001
+    step_size: 1
+  LTCUSDT:
+    type: "A"
+    atr_sl_mult: 2.0
+    atr_buf_long: 0.05
+    atr_buf_short: 0.10
+    tick_size: 0.01
+    step_size: 0.01
+
+B_group:
+  PNUTUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.0001
+    step_size: 1
+  WIFUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.0001
+    step_size: 1
+  ENAUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.0001
+    step_size: 1
+  DOGEUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.00001
+    step_size: 1
+  ARBUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.0001
+    step_size: 1
+  SUIUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.0001
+    step_size: 1
+  SEIUSDT:
+    type: "B"
+    atr_sl_mult: 2.2
+    atr_buf_long: 0.07
+    atr_buf_short: 0.12
+    tick_size: 0.0001
+    step_size: 1
+
+# ==============================================================
+#  GLOBAL PARAMETERS
+# ==============================================================
+global:
+  fixed_notional_usdt: 15.0        # размер позиции
+  leverage: 5
+  min_natr_trade_pct: 0.8          # минимальная волатильность (NATR%) для допуска
+  atr_period: 14
+  ema_fast: 20
+  ema_slow: 200
+  rsi_period: 2
+  update_interval_sec: 120         # анализ/цикл обновления
+  trailing_update_sec: 2
+  order_check_sec: 15
+  timezone: "UTC"
+  regime_skip_below_natr: 0.8
+  version: "v1.0"

@@ -1,0 +1,35 @@
+# Уровни логирования и расписание отчётов
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/orchestrator.log"
+  max_size: 10MB
+  backup_count: 5
+
+reports:
+  daily:
+    enabled: true
+    time: "23:59"
+    format: "html"
+    include_metrics: true
+  weekly:
+    enabled: true
+    day: "sunday"
+    time: "23:59"
+    format: "html"
+    include_metrics: true
+
+metrics:
+  performance:
+    - "pf_ratio"
+    - "win_rate"
+    - "avg_pnl_per_trade"
+    - "max_drawdown"
+  execution:
+    - "fill_rate"
+    - "avg_slippage"
+    - "order_ttl_breach_rate"
+  risk:
+    - "daily_loss"
+    - "position_count"
+    - "sl_breach_rate"
