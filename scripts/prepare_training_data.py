@@ -51,7 +51,10 @@ def prepare_features(ohlc: pd.DataFrame) -> pd.DataFrame:
     feat['rng_3'] = feat['rng_1'].rolling(3).mean()
     
     # Z-score
-    feat['z_close_50'] = (close - feat['ema50']).rolling(50).apply(lambda x: (x - x.mean()) / x.std() if x.std() > 0 else 0)
+    diff = close - feat['ema50']
+    rolling_mean = diff.rolling(50).mean()
+    rolling_std = diff.rolling(50).std()
+    feat['z_close_50'] = (diff - rolling_mean) / rolling_std.replace(0, np.nan)
     
     # Lags
     for k in (1, 2, 3):
