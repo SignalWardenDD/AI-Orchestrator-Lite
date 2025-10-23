@@ -23,6 +23,6 @@ def reconcile_from_exchange(store, broker) -> None:
         entry = float(info.get("entryPrice", 0) or 0)
         side = "LONG" if amt > 0 else "SHORT"
         from .store import Position
-        store.apply_fill_open(Position(symbol=sym, side=side, qty=abs(amt), entry_price=entry, ts_open=0))
+        store.apply_fill_open(Position(symbol=sym, side=side, qty_init=abs(amt), qty=abs(amt), entry_price=entry, ts_open=0))
         restored += 1
     # В реальной версии тут же можно сверить reduce‑only SL/TP и выставить при необходимости.

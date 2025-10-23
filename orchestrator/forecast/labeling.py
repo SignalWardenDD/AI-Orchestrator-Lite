@@ -1,210 +1,84 @@
-# forecast/labeling.py
-from __future__ import annotations
-from dataclasses import dataclass
-from typing import Dict, Literal, Tuple, Optional
-import numpy as np
+# orchestrator/forecast/labeling.py
+"""
+Функции создания лейблов для per-signal моделей.
+"""
+
 import pandas as pd
+import numpy as np
+from typing import Union
 
-
-LabelType = Literal["binary_hit", "trinary", "direction", "regression"]
-
-
-@dataclass
-class HorizonSpec:
-    """Label horizon and barriers, all in price terms relative to entry."""
-    horizon_bars: int = 24          # e.g., 24 bars on 1h -> 1 day
-    tp_mult_atr: float = 2.0
-    sl_mult_atr: float = 2.0
-
-
-def make_future_returns(close: pd.Series, horizon: int) -> pd.Series:
+def make_binary_hit_labels(kline_df: pd.DataFrame, horizon: str) -> pd.Series:
     """
-    Simple forward return (close[t+h] / close[t] - 1).
+    Создает бинарные лейблы "hit TP раньше SL" для заданного горизонта.
+    
+    Args:
+        kline_df: DataFrame с OHLCV данными
+        horizon: Горизонт ("H12" или "H24")
+        
+    Returns:
+        Series с лейблами 0/1, индекс по времени
     """
-    fwd = close.shift(-horizon) / close - 1.0
-    return fwd
+    # Конвертируем горизонт в количество баров
+    horizon_bars = int(horizon[1:])  # H12 -> 12, H24 -> 24
+    
+    # Параметры TP/SL
+    tp_mult_atr = 2.0
+    sl_mult_atr = 2.0
+    
+    # Вычисляем ATR
+    from ..utils.mathx import atr
+    atr_series = atr(kline_df["high"], kline_df["low"], kline_df["close"], period=14)
+    
+    # Создаем лейблы для LONG позиций
+    labels = _create_hit_labels(
+        kline_df["high"], kline_df["low"], kline_df["close"],
+        atr_series, horizon_bars, tp_mult_atr, sl_mult_atr, "LONG"
+    )
+    
+    return labels
 
-
-def event_outcome_first_hit(
-    high: pd.Series,
-    low: pd.Series,
-    close: pd.Series,
-    atr: pd.Series,
-    horizon_bars: int,
-    tp_mult_atr: float,
-    sl_mult_atr: float,
-    side: Literal["LONG", "SHORT"] = "LONG",
-) -> pd.Series:
+def _create_hit_labels(high: pd.Series, low: pd.Series, close: pd.Series, 
+                      atr: pd.Series, horizon_bars: int, tp_mult: float, 
+                      sl_mult: float, side: str) -> pd.Series:
     """
-    Returns +1 if TP first, -1 if SL first, 0 if neither within horizon.
-    For SHORT, TP/SL sides are inverted.
+    Создает лейблы hit/miss для заданных параметров.
     """
-    # Precompute absolute TP/SL distances in price
-    tp_dist = atr * tp_mult_atr
-    sl_dist = atr * sl_mult_atr
-
-    out = pd.Series(index=close.index, dtype=float)
-
-    for t in range(len(close)):
-        c0 = close.iloc[t]
-        if np.isnan(c0):
-            out.iloc[t] = np.nan
+    labels = pd.Series(0, index=close.index)
+    
+    for i in range(len(close) - horizon_bars):
+        if pd.isna(atr.iloc[i]) or atr.iloc[i] <= 0:
             continue
-
-        t_end = min(t + horizon_bars, len(close) - 1)
-        # price barriers:
-        if side == "LONG":
-            tp_price = c0 * (1.0 + tp_dist.iloc[t] / c0)
-            sl_price = c0 * (1.0 - sl_dist.iloc[t] / c0)
-            # iterate bar-by-bar until hit:
-            hit = 0.0
-            for k in range(t + 1, t_end + 1):
-                if low.iloc[k] <= sl_price:
-                    hit = -1.0
+            
+        entry_price = close.iloc[i]
+        tp_price = entry_price + (tp_mult * atr.iloc[i]) if side == "LONG" else entry_price - (tp_mult * atr.iloc[i])
+        sl_price = entry_price - (sl_mult * atr.iloc[i]) if side == "LONG" else entry_price + (sl_mult * atr.iloc[i])
+        
+        # Проверяем путь от i+1 до i+horizon_bars
+        hit_tp = False
+        hit_sl = False
+        
+        for j in range(i + 1, min(i + horizon_bars + 1, len(close))):
+            if side == "LONG":
+                if high.iloc[j] >= tp_price:
+                    hit_tp = True
                     break
-                if high.iloc[k] >= tp_price:
-                    hit = +1.0
+                if low.iloc[j] <= sl_price:
+                    hit_sl = True
                     break
-            out.iloc[t] = hit
-        else:  # SHORT
-            tp_price = c0 * (1.0 - tp_dist.iloc[t] / c0)
-            sl_price = c0 * (1.0 + sl_dist.iloc[t] / c0)
-            hit = 0.0
-            for k in range(t + 1, t_end + 1):
-                if high.iloc[k] >= sl_price:
-                    hit = -1.0
+            else:  # SHORT
+                if low.iloc[j] <= tp_price:
+                    hit_tp = True
                     break
-                if low.iloc[k] <= tp_price:
-                    hit = +1.0
+                if high.iloc[j] >= sl_price:
+                    hit_sl = True
                     break
-            out.iloc[t] = hit
-
-    return out
-
-
-def event_outcome_first_hit_open_entry(
-    high: pd.Series,
-    low: pd.Series,
-    open_: pd.Series,
-    atr: pd.Series,
-    horizon_bars: int,
-    tp_mult_atr: float,
-    sl_mult_atr: float,
-    side: Literal["LONG", "SHORT"] = "LONG",
-) -> pd.Series:
-    """
-    Как event_outcome_first_hit, но вход на OPEN[t], путь оценивается с бара t (включая t),
-    т.е. моделируем мгновенный вход. ВАЖНО: фичи для этого примера ДОЛЖНЫ быть сдвинуты на t-1.
-    """
-    out = pd.Series(index=open_.index, dtype=float)
-    for t in range(len(open_)):
-        o0 = open_.iloc[t]
-        if np.isnan(o0):
-            out.iloc[t] = np.nan
-            continue
-        t_end = min(t + horizon_bars, len(open_) - 1)
-        tp_dist = atr.iloc[t] * tp_mult_atr
-        sl_dist = atr.iloc[t] * sl_mult_atr
-
-        if side == "LONG":
-            tp_price = o0 * (1.0 + tp_dist / max(o0, 1e-12))
-            sl_price = o0 * (1.0 - sl_dist / max(o0, 1e-12))
-            hit = 0.0
-            for k in range(t, t_end + 1):  # включаем бар t
-                if low.iloc[k] <= sl_price:
-                    hit = -1.0
-                    break
-                if high.iloc[k] >= tp_price:
-                    hit = +1.0
-                    break
-            out.iloc[t] = hit
+        
+        # Лейбл: 1 если TP раньше SL, 0 иначе
+        if hit_tp and not hit_sl:
+            labels.iloc[i] = 1
+        elif hit_sl and not hit_tp:
+            labels.iloc[i] = 0
         else:
-            tp_price = o0 * (1.0 - tp_dist / max(o0, 1e-12))
-            sl_price = o0 * (1.0 + sl_dist / max(o0, 1e-12))
-            hit = 0.0
-            for k in range(t, t_end + 1):
-                if high.iloc[k] >= sl_price:
-                    hit = -1.0
-                    break
-                if low.iloc[k] <= tp_price:
-                    hit = +1.0
-                    break
-            out.iloc[t] = hit
-    return out
-
-
-def build_labels_open_entry(
-    ohlc: pd.DataFrame,
-    atr_series: pd.Series,
-    horizon: HorizonSpec,
-    task: LabelType = "binary_hit",
-    side: Literal["LONG", "SHORT"] = "LONG",
-) -> pd.Series:
-    """
-    Разметка под мгновенный вход на OPEN[t] и путь с t..t+h. Для binary_hit возвращает {-1,0,+1}.
-    Для direction/trinary/regression — как раньше (но имей в виду, что фичи сдвигаются снаружи).
-    """
-    if task == "binary_hit":
-        return event_outcome_first_hit_open_entry(
-            ohlc["high"], ohlc["low"], ohlc["open"], atr_series,
-            horizon_bars=horizon.horizon_bars,
-            tp_mult_atr=horizon.tp_mult_atr,
-            sl_mult_atr=horizon.sl_mult_atr,
-            side=side
-        )
-    # Остальные задачи можно оставить как есть:
-    return build_labels(ohlc, atr_series, horizon, task=task, side=side)
-
-
-def label_direction(close: pd.Series, horizon_bars: int) -> pd.Series:
-    """Direction label: sign of forward return."""
-    fwd = make_future_returns(close, horizon_bars)
-    return np.sign(fwd).astype(float)
-
-
-def label_regression(close: pd.Series, horizon_bars: int) -> pd.Series:
-    """Regression target: forward return value."""
-    return make_future_returns(close, horizon_bars)
-
-
-def label_trinary(close: pd.Series, horizon_bars: int, deadzone: float = 0.001) -> pd.Series:
-    """
-    -1, 0, +1 based on forward return with deadzone around 0.
-    """
-    fwd = make_future_returns(close, horizon_bars)
-    out = pd.Series(index=close.index, dtype=float)
-    out[fwd > deadzone] = +1.0
-    out[fwd < -deadzone] = -1.0
-    out[(fwd <= deadzone) & (fwd >= -deadzone)] = 0.0
-    return out
-
-
-def build_labels(
-    ohlc: pd.DataFrame,
-    atr_series: pd.Series,
-    horizon: HorizonSpec,
-    task: LabelType = "binary_hit",
-    side: Literal["LONG", "SHORT"] = "LONG",
-) -> pd.Series:
-    """
-    General label builder used by training scripts.
-    ohlc must contain: ["open","high","low","close"].
-    """
-    close = ohlc["close"]
-
-    if task == "binary_hit":
-        return event_outcome_first_hit(
-            ohlc["high"], ohlc["low"], close, atr_series,
-            horizon_bars=horizon.horizon_bars,
-            tp_mult_atr=horizon.tp_mult_atr,
-            sl_mult_atr=horizon.sl_mult_atr,
-            side=side
-        )
-    elif task == "direction":
-        return label_direction(close, horizon.horizon_bars)
-    elif task == "trinary":
-        return label_trinary(close, horizon.horizon_bars)
-    elif task == "regression":
-        return label_regression(close, horizon.horizon_bars)
-    else:
-        raise ValueError(f"Unknown task: {task}")
+            labels.iloc[i] = 0  # Неопределенный случай
+    
+    return labels

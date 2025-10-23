@@ -1,0 +1,204 @@
+version: '1.0'
+description: Optimized individual models configuration with tier-based weights and
+  EV thresholds
+models:
+  DOGEUSDT_H12:
+    symbol: DOGEUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_DOGEUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_DOGEUSDT_H12.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  DOGEUSDT_H24:
+    symbol: DOGEUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_DOGEUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_DOGEUSDT_H24.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  SEIUSDT_H12:
+    symbol: SEIUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_SEIUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_SEIUSDT_H12.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  SEIUSDT_H24:
+    symbol: SEIUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_SEIUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_SEIUSDT_H24.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  LTCUSDT_H12:
+    symbol: LTCUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_LTCUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_LTCUSDT_H12.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  LTCUSDT_H24:
+    symbol: LTCUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_LTCUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_LTCUSDT_H24.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  ARBUSDT_H12:
+    symbol: ARBUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_ARBUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_ARBUSDT_H12.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  ARBUSDT_H24:
+    symbol: ARBUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_ARBUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_ARBUSDT_H24.calib.isotonic.joblib
+    weight: 1.0
+    ev_min: 0.1
+    enabled: true
+    tier: 1
+    fallback_to_group: true
+  ADAUSDT_H12:
+    symbol: ADAUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_ADAUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_ADAUSDT_H12.calib.isotonic.joblib
+    weight: 0.7
+    ev_min: 0.15
+    enabled: true
+    tier: 2
+    fallback_to_group: true
+  ADAUSDT_H24:
+    symbol: ADAUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_ADAUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_ADAUSDT_H24.calib.isotonic.joblib
+    weight: 0.7
+    ev_min: 0.15
+    enabled: true
+    tier: 2
+    fallback_to_group: true
+  SUIUSDT_H12:
+    symbol: SUIUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_SUIUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_SUIUSDT_H12.calib.isotonic.joblib
+    weight: 0.7
+    ev_min: 0.15
+    enabled: true
+    tier: 2
+    fallback_to_group: true
+  SUIUSDT_H24:
+    symbol: SUIUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_SUIUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_SUIUSDT_H24.calib.isotonic.joblib
+    weight: 0.7
+    ev_min: 0.15
+    enabled: true
+    tier: 2
+    fallback_to_group: true
+  WIFUSDT_H12:
+    symbol: WIFUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_WIFUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_WIFUSDT_H12.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  WIFUSDT_H24:
+    symbol: WIFUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_WIFUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_WIFUSDT_H24.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  HBARUSDT_H12:
+    symbol: HBARUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_HBARUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_HBARUSDT_H12.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  HBARUSDT_H24:
+    symbol: HBARUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_HBARUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_HBARUSDT_H24.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  PNUTUSDT_H12:
+    symbol: PNUTUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_PNUTUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_PNUTUSDT_H12.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  PNUTUSDT_H24:
+    symbol: PNUTUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_PNUTUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_PNUTUSDT_H24.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  ENAUSDT_H12:
+    symbol: ENAUSDT
+    horizon: H12
+    model_path: forecast/models/binary_hit_ENAUSDT_H12.joblib
+    calibrator_path: forecast/models/binary_hit_ENAUSDT_H12.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true
+  ENAUSDT_H24:
+    symbol: ENAUSDT
+    horizon: H24
+    model_path: forecast/models/binary_hit_ENAUSDT_H24.joblib
+    calibrator_path: forecast/models/binary_hit_ENAUSDT_H24.calib.isotonic.joblib
+    weight: 0.0
+    ev_min: 0.25
+    enabled: false
+    tier: 3
+    fallback_to_group: true

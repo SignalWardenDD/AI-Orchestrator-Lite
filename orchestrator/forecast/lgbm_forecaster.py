@@ -20,7 +20,7 @@ try:
 except Exception:
     LGB_OK = False
 
-from forecast.calibrators import Calibrator
+from orchestrator.forecast.calibrators import Calibrator
 
 
 @dataclass

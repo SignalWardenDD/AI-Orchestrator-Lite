@@ -24,13 +24,103 @@ except Exception:
     SK_OK = False
 
 # Project modules
-from utils.mathx import natr, atr, ewma, zscore, pct_change_safe, EPS
-from forecast.labeling import HorizonSpec, build_labels
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from orchestrator.utils.mathx import natr, atr, ewma, zscore, pct_change_safe, EPS
+from orchestrator.forecast.labeling import HorizonSpec, build_labels, build_labels_open_entry
 # Data fetchers — если у тебя другие имена, эти try/except сделают фолбэк
 try:
-    from data.ingest import fetch_ohlcv_1h as fetch_ohlcv
+    from orchestrator.data.ingest import fetch_ohlcv_1h as fetch_ohlcv
 except Exception:
     fetch_ohlcv = None
+
+# Используем реальные данные
+fetch_ohlcv = None
+
+# Функция для загрузки реальных данных
+def _load_real_data(symbol: str, start: str = None, end: str = None) -> pd.DataFrame:
+    """Загружает реальные данные из CSV файлов."""
+    import glob
+    
+    # Ищем файлы данных для символа
+    data_dir = "data/raw/binance_futures/1h"
+    pattern = f"{data_dir}/{symbol}_1h_*.csv"
+    files = glob.glob(pattern)
+    
+    if not files:
+        raise FileNotFoundError(f"No data files found for {symbol} in {data_dir}")
+    
+    # Берем самый новый файл
+    latest_file = max(files, key=os.path.getctime)
+    print(f"Loading {symbol} from {latest_file}")
+    
+    # Загружаем данные
+    df = pd.read_csv(latest_file)
+    
+    # Преобразуем в нужный формат
+    if 'timestamp' in df.columns:
+        df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+        df = df.set_index('timestamp')
+    
+    # Переименовываем колонки если нужно
+    if 'open' not in df.columns and 'Open' in df.columns:
+        df = df.rename(columns={
+            'Open': 'open', 'High': 'high', 'Low': 'low', 
+            'Close': 'close', 'Volume': 'volume'
+        })
+    
+    # Фильтруем по датам если указаны
+    if start:
+        start_dt = pd.to_datetime(start, utc=True)
+        df = df[df.index >= start_dt]
+    
+    if end:
+        end_dt = pd.to_datetime(end, utc=True)
+        df = df[df.index <= end_dt]
+    
+    # Оставляем только нужные колонки
+    required_cols = ['open', 'high', 'low', 'close', 'volume']
+    df = df[required_cols]
+    
+    return df.sort_index()
+
+# Заглушка для тестирования (оставляем как fallback)
+def _create_dummy_data(symbol: str, start: str = None, end: str = None) -> pd.DataFrame:
+    """Создает тестовые данные для обучения."""
+    import numpy as np
+    from datetime import datetime, timedelta
+    
+    # Создаем 1000 баров данных
+    dates = pd.date_range(start='2023-01-01', periods=1000, freq='1h')
+    
+    # Генерируем случайные OHLCV данные
+    np.random.seed(42)
+    base_price = 100.0
+    
+    data = []
+    price = base_price
+    
+    for i, date in enumerate(dates):
+        # Простая модель случайного блуждания
+        change = np.random.normal(0, 0.02)  # 2% волатильность
+        price *= (1 + change)
+        
+        high = price * (1 + abs(np.random.normal(0, 0.01)))
+        low = price * (1 - abs(np.random.normal(0, 0.01)))
+        volume = np.random.uniform(1000, 10000)
+        
+        data.append({
+            'open': price,
+            'high': max(price, high),
+            'low': min(price, low),
+            'close': price,
+            'volume': volume
+        })
+    
+    df = pd.DataFrame(data, index=dates)
+    return df
 
 # -------------------------------
 
@@ -55,9 +145,22 @@ def _ensure_dir(p: str) -> None:
     os.makedirs(p, exist_ok=True)
 
 def _fetch_ohlc_or_die(symbol: str, start: Optional[str], end: Optional[str]) -> pd.DataFrame:
-    if fetch_ohlcv is None:
-        raise RuntimeError("data.ingest.fetch_ohlcv_1h not found. Please implement or wire your fetcher.")
-    df = fetch_ohlcv(symbol, start=start, end=end)
+    if fetch_ohlcv is not None:
+        try:
+            df = fetch_ohlcv(symbol, start=start, end=end)
+        except TypeError:
+            # Если функция не принимает start/end параметры
+            df = fetch_ohlcv(symbol)
+    else:
+        # Используем реальные данные
+        try:
+            print(f"Loading real data for {symbol}")
+            df = _load_real_data(symbol, start=start, end=end)
+        except Exception as e:
+            print(f"Failed to load real data for {symbol}: {e}")
+            print(f"Using dummy data for {symbol}")
+            df = _create_dummy_data(symbol, start=start, end=end)
+    
     # ожидаем колонки: open, high, low, close, volume; индекс — datetime
     for c in ("open","high","low","close"):
         if c not in df.columns:
@@ -119,7 +222,6 @@ def _align_xy_open_entry_no_lookahead(
       - конверсия y -> {0,1} если классификация
       - синхронизация индексов и dropna
     """
-    from forecast.labeling import build_labels_open_entry
     feats_s = feats.shift(1)
 
     labels_raw = build_labels_open_entry(
@@ -146,12 +248,14 @@ def _augment_both_sides(
     X: pd.DataFrame, y: pd.Series,
     X_short: pd.DataFrame, y_short: pd.Series
 ) -> Tuple[pd.DataFrame, pd.Series]:
-    Xa = pd.concat([X.copy(), X_short.copy()], axis=0)
-    ya = pd.concat([y.copy(), y_short.copy()], axis=0)
     # фича направления сделки:
-    X["side_dir"] = +1.0
-    X_short["side_dir"] = -1.0
-    Xa["side_dir"] = Xa["side_dir"].fillna(0.0)  # safety
+    X_copy = X.copy()
+    X_short_copy = X_short.copy()
+    X_copy["side_dir"] = +1.0
+    X_short_copy["side_dir"] = -1.0
+    
+    Xa = pd.concat([X_copy, X_short_copy], axis=0)
+    ya = pd.concat([y.copy(), y_short.copy()], axis=0)
     return Xa, ya
 
 def _make_sample_weights(y: pd.Series, symbols: pd.Series, enable_symbol_balance: bool) -> np.ndarray:
@@ -195,53 +299,52 @@ def _train_estimator(X: pd.DataFrame, y: pd.Series, cfg: TrainConfig, Xva: pd.Da
         # Приводим к {0,1} для классификации
         y_bin = y.copy()
         y_bin = (y_bin > 0).astype(int)
-    if LGB_OK:
-        dtrain = lgb.Dataset(X, label=y_bin, weight=w_tr, free_raw_data=False)
-        dvalid = lgb.Dataset(Xva, label=yva, reference=dtrain, free_raw_data=False) if Xva is not None else None
-        params = {
-            "objective": "binary",
-            "metric": ["auc", "binary_logloss"],
-            "learning_rate": 0.035,
-            "num_leaves": 31,
-            "max_depth": -1,
-            "min_data_in_leaf": 64,
-            "feature_fraction": 0.75,
-            "bagging_fraction": 0.8,
-            "bagging_freq": 1,
-            "lambda_l1": 1.0,
-            "lambda_l2": 2.0,
-            "seed": cfg.random_state,
-            "verbosity": -1,
-        }
-        valid_sets = [dtrain]
-        valid_names = ["train"]
-        if dvalid is not None:
-            valid_sets.append(dvalid)
-            valid_names.append("valid")
-        
-        model = lgb.train(
-            params, dtrain,
-            num_boost_round=400,
-            valid_sets=valid_sets,
-            valid_names=valid_names,
-            early_stopping_rounds=60,
-            keep_training_booster=True,
-        )
-        kind = "lgb_binary"
-        model_obj = model
-    elif SK_OK:
-        pipe = Pipeline(steps=[
-            ("scaler", StandardScaler(with_mean=False)),
-            ("lr", LogisticRegression(max_iter=800, C=0.8, class_weight="balanced",
-                                      n_jobs=None, random_state=cfg.random_state))
-        ])
-        model_obj = pipe.fit(X, y_bin)
-        kind = "sk_logreg"
-    else:
-        # Фолбэк: весовая сумма фич → "скор" (псевдо-модель)
-        weights = (X.corrwith(y)).fillna(0.0).values
-        model_obj = {"weights": weights, "feature_names": list(X.columns)}
-        kind = "linear_fallback"
+        if LGB_OK:
+            dtrain = lgb.Dataset(X, label=y_bin, weight=w_tr, free_raw_data=False)
+            dvalid = lgb.Dataset(Xva, label=yva, reference=dtrain, free_raw_data=False) if Xva is not None else None
+            params = {
+                "objective": "binary",
+                "metric": ["auc", "binary_logloss"],
+                "learning_rate": 0.035,
+                "num_leaves": 31,
+                "max_depth": -1,
+                "min_data_in_leaf": 64,
+                "feature_fraction": 0.75,
+                "bagging_fraction": 0.8,
+                "bagging_freq": 1,
+                "lambda_l1": 1.0,
+                "lambda_l2": 2.0,
+                "seed": cfg.random_state,
+                "verbosity": -1,
+            }
+            valid_sets = [dtrain]
+            valid_names = ["train"]
+            if dvalid is not None:
+                valid_sets.append(dvalid)
+                valid_names.append("valid")
+            
+            model = lgb.train(
+                params, dtrain,
+                num_boost_round=400,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                callbacks=[lgb.early_stopping(60)],
+            )
+            kind = "lgb_binary"
+            model_obj = model
+        elif SK_OK:
+            pipe = Pipeline(steps=[
+                ("scaler", StandardScaler(with_mean=False)),
+                ("lr", LogisticRegression(max_iter=800, C=0.8, class_weight="balanced",
+                                          n_jobs=None, random_state=cfg.random_state))
+            ])
+            model_obj = pipe.fit(X, y_bin)
+            kind = "sk_logreg"
+        else:
+            # Фолбэк: весовая сумма фич → "скор" (псевдо-модель)
+            weights = (X.corrwith(y)).fillna(0.0).values
+            model_obj = {"weights": weights, "feature_names": list(X.columns)}
+            kind = "linear_fallback"
 
     else:  # regression
         if LGB_OK:

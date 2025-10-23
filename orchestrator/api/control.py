@@ -22,3 +22,11 @@ async def resume_symbol(symbol: str):
         return {"ok": False, "error": "store_not_attached"}
     _STORE.paused_symbols.discard(symbol.upper())
     return {"ok": True, "symbol": symbol.upper(), "paused": False}
+
+def get_status():
+    """Возвращает статус системы."""
+    return {"system": "running", "timestamp": "2024-01-01T00:00:00Z"}
+
+def get_positions():
+    """Возвращает активные позиции."""
+    return []

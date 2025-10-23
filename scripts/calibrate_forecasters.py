@@ -11,7 +11,11 @@ try:
 except Exception:
     SK_OK = False
 
-from forecast.calibrators import Calibrator, calibration_report
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from orchestrator.forecast.calibrators import Calibrator, calibration_report
 
 def _ensure_dir(p: str) -> None:
     os.makedirs(p, exist_ok=True)

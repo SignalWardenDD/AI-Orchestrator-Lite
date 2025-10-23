@@ -13,8 +13,8 @@ class DummyBroker:
     def fetch_price(self, symbol: str) -> float:
         return self.prices.get(symbol, 0.0)
 
-    def place_postonly_limit(self, symbol: str, side: str, qty: float, price: float, ttl_sec: int) -> dict:
-        o = {"orderId": f"LIM-{int(time.time()*1000)}", "symbol": symbol, "side": side, "qty": qty, "price": price, "postOnly": True, "ttl": ttl_sec, "filled": False}
+    def place_postonly_limit(self, symbol: str, side: str, qty: float, price: float, ttl_sec: int, use_limit_maker: bool = False, role: str = "ENTRY") -> dict:
+        o = {"orderId": f"LIM-{int(time.time()*1000)}", "symbol": symbol, "side": side, "qty": qty, "price": price, "postOnly": True, "ttl": ttl_sec, "filled": False, "role": role}
         self.orders.setdefault(symbol, []).append(o)
         return o
 
@@ -28,8 +28,15 @@ class DummyBroker:
     def place_market(self, symbol: str, side: str, qty: float) -> dict:
         return {"orderId": f"MKT-{int(time.time()*1000)}", "symbol": symbol, "side": side, "qty": qty, "price": self.fetch_price(symbol)}
 
-    def place_reduce_only(self, symbol: str, side: str, qty: float, price: float, kind: str) -> dict:
-        return {"orderId": f"RED-{int(time.time()*1000)}", "symbol": symbol, "side": side, "qty": qty, "price": price, "kind": kind}
+    def place_reduce_only(self, symbol: str, side: str, qty: float, price: float, kind: str, role: str = "TP") -> dict:
+        return {"orderId": f"RED-{int(time.time()*1000)}", "symbol": symbol, "side": side, "qty": qty, "price": price, "kind": kind, "role": role}
+    
+    def place_reduce_only_stop(self, symbol: str, side: str, qty: float, stop_price: float, role: str = "SL") -> dict:
+        return {"orderId": f"STP-{int(time.time()*1000)}", "symbol": symbol, "side": side, "qty": qty, "stop_price": stop_price, "role": role}
 
     def get_open_orders(self, symbol: str) -> list[dict]:
         return [o for o in self.orders.get(symbol, []) if not o.get("canceled") and not o.get("filled")]
+    
+    def list_open_orders(self, symbol: str) -> list[dict]:
+        """Алиас для get_open_orders для совместимости с reconciler."""
+        return self.get_open_orders(symbol)

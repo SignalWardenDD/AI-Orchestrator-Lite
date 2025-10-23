@@ -1,0 +1,34 @@
+ml:
+  enabled: true
+  models:
+    A_group:
+      H12:
+        path: forecast/models/binary_hit_ADAUSDT_and_2_more_H12.joblib
+        calibrator: forecast/models/binary_hit_ADAUSDT_and_2_more_H12.calib.isotonic.joblib
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_ADAUSDT_and_2_more_H24.joblib
+        calibrator: forecast/models/binary_hit_ADAUSDT_and_2_more_H24.calib.isotonic.joblib
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    B_group:
+      H12:
+        path: forecast/models/binary_hit_PNUTUSDT_and_6_more_H12.joblib
+        calibrator: forecast/models/binary_hit_PNUTUSDT_and_6_more_H12.calib.isotonic.joblib
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.25
+      H24:
+        path: forecast/models/binary_hit_PNUTUSDT_and_6_more_H24.joblib
+        calibrator: forecast/models/binary_hit_PNUTUSDT_and_6_more_H24.calib.isotonic.joblib
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.25
+  ensemble:
+    enabled: true
+    weights:
+      H12: 0.5
+      H24: 0.5

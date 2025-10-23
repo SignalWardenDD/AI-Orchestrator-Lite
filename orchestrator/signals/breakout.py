@@ -93,3 +93,8 @@ class BreakoutProvider(SignalProvider):
                 ts=last["ts"],
             ))
         return out
+
+def compute_marks(kline: pd.DataFrame) -> pd.Series:
+    """Вычисляет метки сигналов прорыва."""
+    provider = BreakoutProvider()
+    return provider.generate(kline)

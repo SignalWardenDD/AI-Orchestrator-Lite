@@ -44,20 +44,51 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-.env
+# Logs
 *.log
-*.csv
-telemetry/
-reports/
-forecast/models/
+logs/
+trading_system.log
+
+# Data
+data/raw/
 data/cache/
+data/processed/
+*.parquet
+*.csv
+*.json
+
+# Models
+data/models/
+forecast/models/
 *.joblib
-*.npz
 *.pkl
+*.h5
+*.model
+
+# Config
+.env
+config/local/
+*.local.yaml
+
+# Reports
+reports/
+*.md
+!README.md
 
 # Temporary files
 *.tmp
 *.temp
-temp/
-tmp/
+*.bak
+*.backup
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation
+docs/_build/
+docs/build/

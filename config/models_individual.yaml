@@ -1,0 +1,138 @@
+ml:
+  enabled: true
+  models:
+    ADAUSDT:
+      H12:
+        path: forecast/models/binary_hit_ADAUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_ADAUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    HBARUSDT:
+      H12:
+        path: forecast/models/binary_hit_HBARUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_HBARUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    LTCUSDT:
+      H12:
+        path: forecast/models/binary_hit_LTCUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_LTCUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    PNUTUSDT:
+      H12:
+        path: forecast/models/binary_hit_PNUTUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_PNUTUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    WIFUSDT:
+      H12:
+        path: forecast/models/binary_hit_WIFUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_WIFUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    ENAUSDT:
+      H12:
+        path: forecast/models/binary_hit_ENAUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_ENAUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    DOGEUSDT:
+      H12:
+        path: forecast/models/binary_hit_DOGEUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_DOGEUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    ARBUSDT:
+      H12:
+        path: forecast/models/binary_hit_ARBUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_ARBUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    SUIUSDT:
+      H12:
+        path: forecast/models/binary_hit_SUIUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_SUIUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+    SEIUSDT:
+      H12:
+        path: forecast/models/binary_hit_SEIUSDT_H12.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+      H24:
+        path: forecast/models/binary_hit_SEIUSDT_H24.joblib
+        calibrator: null
+        calibrator_prefer: isotonic
+        prob_weight_base: 1.0
+        prob_weight_gain: 1.15
+  ensemble:
+    enabled: true
+    weights:
+      H12: 0.5
+      H24: 0.5

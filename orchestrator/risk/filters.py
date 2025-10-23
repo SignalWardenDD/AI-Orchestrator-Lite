@@ -121,3 +121,11 @@ class PositionConcentrationGuard:
             }
 
         return True, "ok", {"total": total, "per_symbol": per_sym, "per_direction": per_dir}
+
+def check_daily_loss(daily_pnl: float, daily_limit: float) -> bool:
+    """Проверяет дневные потери."""
+    return daily_pnl >= daily_limit
+
+def check_position_limits(current_positions: int, max_positions: int) -> bool:
+    """Проверяет лимиты позиций."""
+    return current_positions < max_positions

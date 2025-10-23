@@ -74,3 +74,8 @@ class PullbackMRProvider(SignalProvider):
                 ts=r["ts"],
             ))
         return out
+
+def compute_marks(kline: pd.DataFrame) -> pd.Series:
+    """Вычисляет метки сигналов pullback/mr."""
+    provider = PullbackMRProvider()
+    return provider.generate(kline)

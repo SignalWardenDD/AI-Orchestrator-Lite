@@ -52,3 +52,8 @@ class TrendProvider(SignalProvider):
                 ts=r["ts"],
             ))
         return out
+
+def compute_marks(kline: pd.DataFrame) -> pd.Series:
+    """Вычисляет метки сигналов тренда."""
+    provider = TrendProvider()
+    return provider.generate(kline)

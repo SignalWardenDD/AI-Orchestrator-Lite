@@ -1,0 +1,24 @@
+orchestrator:
+  ev_filtering:
+    tier_1_ev_min: 0.1
+    tier_2_ev_min: 0.15
+    tier_3_ev_min: 0.25
+    default_ev_min: 0.12
+    max_ev_threshold: 0.3
+  model_weights:
+    tier_1_weight: 1.2
+    tier_2_weight: 0.8
+    tier_3_weight: 0.0
+    per_signal_boost: 1.1
+  risk_management:
+    max_positions_per_symbol: 1
+    max_global_positions: 4
+    position_size_usdt: 15
+    leverage: 5
+    cooldown_seconds: 0
+  ml_integration:
+    use_per_signal_models: true
+    fallback_to_individual: true
+    fallback_to_group: true
+    auto_disable_weak_models: true
+    retrain_frequency_days: 14

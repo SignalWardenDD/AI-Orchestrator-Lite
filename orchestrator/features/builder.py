@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 
-from utils.mathx import natr, ewma, zscore, pct_change_safe, atr
+from orchestrator.utils.mathx import natr, ewma, zscore, pct_change_safe, atr
 
 MIN_BARS = 220  # достаточно для EMA200 и zscore(50)
 

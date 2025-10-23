@@ -45,3 +45,8 @@ class BollingerPlayProvider(SignalProvider):
             elif close > bb_up:
                 out.append(SignalCandidate(symbol=symbol, type="BB", side="SHORT", entry_price=close, atr=a, ema20=ema20, meta={}, ts=r["ts"]))
         return out
+
+def compute_marks(kline: pd.DataFrame) -> pd.Series:
+    """Вычисляет метки сигналов Bollinger."""
+    provider = BollingerPlayProvider()
+    return provider.generate(kline)

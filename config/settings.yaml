@@ -13,12 +13,15 @@ engine:
   slippage_cap_pct: 0.12
   score_min_usdt: 0.12
   time_weight_alpha: 0.05     # E_adj = E/(1 + alpha * median(t_hit_first))
+  cooldown_seconds: 0         # кулдауны не нужны
+  trend_weight: 0.20          # тренд не ключевой — даём жить контртренду
+  ev_min_r: 0.10              # чуть ниже порог для большей активности (контроль риском)
   
   # ML Forecast Settings
   forecast:
     enabled: true
     ml_models: true
-    models_dir: "forecast/models"
+    models_dir: "data/models"
     auto_load: true
     fallback_to_noml: true
 
@@ -31,24 +34,30 @@ btc_context:
 # ML Integration Settings
 ml:
   enabled: true
-  model_path: "forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib"
+  config_path: "config/models_individual_optimized.yaml"  # путь к конфигурации индивидуальных моделей
   calibrator_prefer: "isotonic"   # "platt" or "isotonic"
   prob_weight_base: 1.0           # 1.0 = не менять EV при p=0.5
   prob_weight_gain: 1.0           # 1.0 = влияние умеренное; 1.5–2.0 усилит
+  min_auc_threshold: 0.45         # минимальный AUC для использования модели
   
-  # Model Settings
-  models:
-    binary_hit:
-      enabled: true
-      model_path: "forecast/models/binary_hit_ADAUSDT_and_6_more_H24.joblib"
-      prob_weight_gain: 1.2
-    direction:
-      enabled: true
-      model_path: "forecast/models/direction_ADAUSDT_and_6_more_H24.joblib"
-      prob_weight_gain: 1.0
-    trinary:
-      enabled: true
-      model_path: "forecast/models/trinary_ADAUSDT_and_6_more_H24.joblib"
+  # Individual Models Settings
+  individual_models:
+    enabled: true
+  
+  # Per-signal models configuration (OPTIMIZED)
+  models_per_signal:
+    yaml_path: "config/optimized/models_per_signal_optimized.yaml"
+    enabled: true
+  models_individual:
+    yaml_path: "config/optimized/models_individual_optimized.yaml"
+    config_path: "config/optimized/models_individual_optimized.yaml"
+    fallback_to_group_models: true
+    auto_disable_weak_models: true
+    ensemble_weights:
+      quality_based: true
+      default_h12_weight: 0.5
+      default_h24_weight: 0.5
+      model_path: "data/models/trinary_ADAUSDT_and_6_more_H24.joblib"
       prob_weight_gain: 0.8
   
   # Calibration Settings
@@ -118,6 +127,7 @@ execution:
     postonly_ttl_max: 12
     slippage_cap_pct: 0.12
     market_fallback: true
+    use_limit_maker: true     # настоящие maker-ордера на Binance Futures
   exits:
     tp_ladder:
       tp1: [0.20, 0.6]    # 20% @ +0.6×ATR
@@ -133,18 +143,39 @@ execution:
       after_tp1: 0.15
       after_tp2: 0.35
       after_tp3: 0.80
+  # PnL-based targets
+  pnl_targets_usd:
+    tp1_usd: 0.15             # используем для «перевода SL» триггер
+    sl_to_usd_on_tp1: -0.05   # после +$0.15 двигаем SL на −$0.05
+  
+  # Многоступенчатый трейлинг SL
+  pnl_trailing_usd:
+    steps:
+      - trigger_usd: 0.15
+        new_sl_pnl_usd: -0.05
+      - trigger_usd: 0.20
+        new_sl_pnl_usd: 0.10
+      - trigger_usd: 0.30
+        new_sl_pnl_usd: 0.15
+  
+  base_stop_usd: -0.35        # базовый SL от входа в $PnL
+  partial_tps:
+    - { share: 0.70, kind: "limit", from_entry_usd: +0.20 }  # 70% на +$0.20
+    - { share: 0.30, kind: "limit", from_entry_usd: +0.35 }  # 30% на +$0.35
 
 # Risk Management Settings
 risk:
   daily_loss_usdt: -7.5
   weekly_max_neg_days: 3
   position_sizing:
-    fixed_notional_usdt: 15.0
+    fixed_notional_usdt: 15.0  # фиксированный размер позиции
     leverage: 5
   limits:
     min_natr_trade_pct: 0.8
     max_positions_per_symbol: 1
-    max_total_positions: 7
+    max_total_positions: 4  # максимум 4 одновременных позиции
+  max_open_positions_global: 4
+  max_open_positions_per_symbol: 1
 
 # Telemetry Settings
 telemetry:
@@ -157,8 +188,18 @@ telemetry:
     format: "json"
   storage:
     type: "csv"
-    directory: "telemetry"
+    directory: "logs"
     retention_days: 30
+
+# Reconciliation Settings
+reconciliation:
+  enabled: true
+  interval_seconds: 15      # как и раньше — частая, но щадящая сверка
+  hysteresis_pct: 0.06      # анти-чурнинг: если расхождение < 0.06% — не трогаем
+  max_batch_cancel: 6       # не более N отмен за один проход
+  max_batch_create: 6       # не более N дозаводов за один проход
+  respect_improvements: true  # НЕ ухудшать SL/TP
+  roles: ["ENTRY", "SL", "TP1", "TP2"]  # ожидаемые роли
 
 # API Settings
 api:

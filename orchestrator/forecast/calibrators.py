@@ -45,12 +45,14 @@ class Calibrator:
     kind: CalibType = "platt"
     model: Any = None
 
-    def fit(self, raw_scores: np.ndarray, y_true: np.ndarray):
+    def fit(self, raw_scores: np.ndarray, y_true: np.ndarray, kind: str = "isotonic"):
         if not SK_OK:
             # no-op calibrator in NoML environment
             self.kind = "noop"
             self.model = None
             return self
+        
+        self.kind = kind
 
         raw_scores = raw_scores.reshape(-1, 1)
         y = y_true.astype(int)
