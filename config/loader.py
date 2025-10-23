@@ -9,6 +9,7 @@ CFG_ROOT = os.path.join(os.path.dirname(__file__))
 class SettingsCfg:
     engine: Dict[str, Any]
     btc_context: Dict[str, Any]
+    ml: Dict[str, Any] = None
 
 @dataclass
 class RiskCfg:
@@ -33,7 +34,11 @@ def _load_yaml(name: str) -> Dict[str, Any]:
 
 def load_settings() -> SettingsCfg:
     y = _load_yaml("settings.yaml")
-    return SettingsCfg(engine=y.get("engine", {}), btc_context=y.get("btc_context", {}))
+    return SettingsCfg(
+        engine=y.get("engine", {}), 
+        btc_context=y.get("btc_context", {}),
+        ml=y.get("ml", {})
+    )
 
 
 def load_risk() -> RiskCfg:
@@ -48,4 +53,18 @@ def load_ladders() -> LaddersCfg:
 
 def load_symbols() -> SymbolsCfg:
     y = _load_yaml("symbols.yaml")
-    return SymbolsCfg(symbols=y.get("symbols", []))
+    out = []
+    
+    # Поддержка старого формата
+    if "symbols" in y and isinstance(y["symbols"], list):
+        out = y["symbols"]
+    else:
+        # Новый формат с группами
+        for group_key in ("A_group", "B_group"):
+            grp = y.get(group_key, {})
+            for sym, params in grp.items():
+                item = {"symbol": sym}
+                item.update(params or {})
+                out.append(item)
+    
+    return SymbolsCfg(symbols=out)

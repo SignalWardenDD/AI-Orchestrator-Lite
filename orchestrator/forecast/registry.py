@@ -17,12 +17,17 @@ class PerSignalRegistry:
         self._cache: Dict[Tuple[str, Optional[str], str], dict] = {}
         
         # Поддержка как объекта, так и словаря
-        if hasattr(cfg, 'ml'):
-            per_signal_path = cfg.ml.models_per_signal.yaml_path
-            individual_path = cfg.ml.models_individual.yaml_path
+        if hasattr(cfg, 'ml') and isinstance(cfg.ml, dict):
+            per_signal_path = cfg.ml.get('models_per_signal', {}).get('yaml_path', 'config/optimized/models_per_signal_optimized.yaml')
+            individual_path = cfg.ml.get('models_individual', {}).get('yaml_path', 'config/optimized/models_individual_optimized.yaml')
+        elif hasattr(cfg, 'ml'):
+            # cfg.ml может быть простым объектом/неймспейсом
+            per_signal_path = getattr(getattr(cfg.ml, 'models_per_signal', None), 'yaml_path', 'config/optimized/models_per_signal_optimized.yaml')
+            individual_path = getattr(getattr(cfg.ml, 'models_individual', None), 'yaml_path', 'config/optimized/models_individual_optimized.yaml')
         else:
-            per_signal_path = cfg.get('ml', {}).get('models_per_signal', {}).get('yaml_path', 'config/optimized/models_per_signal_optimized.yaml')
-            individual_path = cfg.get('ml', {}).get('models_individual', {}).get('yaml_path', 'config/optimized/models_individual_optimized.yaml')
+            # безопасный дефолт
+            per_signal_path = 'config/optimized/models_per_signal_optimized.yaml'
+            individual_path = 'config/optimized/models_individual_optimized.yaml'
         
         self._map = self._load_yaml(per_signal_path)
         self._fallback = self._load_yaml(individual_path)
