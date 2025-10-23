@@ -95,5 +95,8 @@ echo ""
 echo "🛑 Для остановки нажмите Ctrl+C"
 echo ""
 
+# Установка PYTHONPATH
+export PYTHONPATH="$(pwd):$(pwd)/orchestrator"
+
 # Запуск системы
 python3 run_trading_system.py

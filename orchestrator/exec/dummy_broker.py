@@ -40,3 +40,55 @@ class DummyBroker:
     def list_open_orders(self, symbol: str) -> list[dict]:
         """Алиас для get_open_orders для совместимости с reconciler."""
         return self.get_open_orders(symbol)
+    
+    def fetch_ohlcv(self, symbol: str, interval: str = "1h", limit: int = 100) -> list[list]:
+        """Возвращает синтетические OHLCV данные для тестирования."""
+        import pandas as pd
+        from datetime import datetime, timedelta
+        
+        # Создаем синтетические данные
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=limit)
+        
+        # Генерируем временные метки
+        timestamps = pd.date_range(start_time, end_time, freq='1H')[:-1]
+        
+        # Базовые цены для разных символов
+        base_prices = {
+            'ADAUSDT': 0.45,
+            'DOGEUSDT': 0.08,
+            'LTCUSDT': 65.0,
+            'BTCUSDT': 45000.0
+        }
+        
+        base_price = base_prices.get(symbol, 100.0)
+        ohlcv_data = []
+        
+        for i, ts in enumerate(timestamps):
+            # Простая синусоидальная модель цены
+            price_factor = 1.0 + 0.1 * (i / len(timestamps)) + 0.05 * (i % 10) / 10
+            price = base_price * price_factor
+            
+            # OHLCV данные
+            open_price = price
+            high_price = price * 1.02
+            low_price = price * 0.98
+            close_price = price * 1.01
+            volume = 1000.0 + (i % 100) * 10
+            
+            ohlcv_data.append([
+                int(ts.timestamp() * 1000),  # openTime
+                open_price,                  # open
+                high_price,                  # high
+                low_price,                   # low
+                close_price,                 # close
+                volume,                      # volume
+                int(ts.timestamp() * 1000) + 3600000,  # closeTime
+                volume * close_price,        # quoteAssetVolume
+                100,                         # count
+                volume * 0.6,                # takerBuyBaseAssetVolume
+                volume * close_price * 0.6,  # takerBuyQuoteAssetVolume
+                "0"                          # ignore
+            ])
+        
+        return ohlcv_data
